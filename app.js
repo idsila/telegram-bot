@@ -2,6 +2,12 @@ require("dotenv").config();
 
 const commands = require("./commands.js");
 const { Telegraf, session, Scenes } = require("telegraf");
+const express = require("express");
+const cors = require("cors");
+const app = express();
+
+app.use(cors({methods:["GET", "POST"]}));
+app.use(express.json());    
 
 const ADMIN_ID = 7502494374;
 
@@ -251,3 +257,11 @@ bot.command("help", async (ctx) => {
 
 //bot.on('text', ctx => console.log(ctx.update.message.from));
 bot.launch();
+
+app.get('/sleep', async (req, res) =>{
+  res.send({type: 200});
+});
+
+app.listen(3000, err =>{
+  err ? err : console.log('STARTED SERVER');
+})
