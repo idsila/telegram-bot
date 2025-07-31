@@ -1,13 +1,15 @@
 require("dotenv").config();
 
 const commands = require("./commands.js");
+const dataBase = require("./dataBase.js");
 const { Telegraf, session, Scenes } = require("telegraf");
 const express = require("express");
 const cors = require("cors");
+const { parse } = require("dotenv");
 const app = express();
 
-app.use(cors({methods:["GET", "POST"]}));
-app.use(express.json());    
+app.use(cors({ methods: ["GET", "POST"] }));
+app.use(express.json());
 
 const ADMIN_ID = 7502494374;
 
@@ -21,21 +23,26 @@ bot.use(
 
 bot.telegram.setMyCommands(commands);
 
-// Система принятий и проверок в канал
-const joinUsers = {};
-bot.on("chat_join_request", async (ctx) => {
-  const { chat, from, invite_link, date } = ctx.chatJoinRequest;
 
-  joinUsers[from.id] = {
-    chat: chat,
-    from: from,
-    date: date,
-    invite_link: invite_link.invite_link,
-    join: false,
-  };
-  console.log(joinUsers);
-  await bot.telegram.sendPhoto(
-    from.id,
+
+// Система принятий и проверок в канал
+bot.on("chat_join_request", async (ctx) => {
+  const { chat, from: { id, first_name, username, language_code }, date } = ctx.chatJoinRequest;
+  dataBase.findOne({ username }).then(async (res) => {
+    if(!res){
+      //Запись в базе данных создана
+      dataBase.insertOne({
+        id, first_name, username, language_code, date: dateNow(), balance: 0,
+        data_channel: { chat: chat, date: date, join: false },
+      });
+    }
+    else if(res.data_channel === null || res.data_channel?.join){
+      //Пользователь уже есть в базе данных нужно обновить данные
+      dataBase.updateOne({ username }, { $set: { data_channel: { chat: chat, date: date, join: false } } })
+    }
+  });
+
+  await bot.telegram.sendPhoto(id,
     "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
     {
       caption:
@@ -48,24 +55,35 @@ bot.on("chat_join_request", async (ctx) => {
       },
     }
   );
+
+
+
 });
 bot.action("approve_join", async (ctx) => {
-  const user = ctx.update.callback_query.from;
-  if (joinUsers[user.id]) {
-    if (!joinUsers[user.id].join) {
-      joinUsers[user.id].join = true;
-      await ctx.telegram.approveChatJoinRequest(
-        joinUsers[user.id].chat.id,
-        user.id
-      );
-      await ctx.reply("🛠️ <b>Вы прошли проверку</b>", { parse_mode: "HTML" });
-    } else {
-      await ctx.reply("🏁 <b>Вы уже прошли проверку</b>", {
-        parse_mode: "HTML",
-      });
+  const { id, first_name, username, language_code } = ctx.update.callback_query.from;
+  dataBase.findOne({ username }).then(async (res) => {
+    if(res){
+      if (!res.data_channel?.join || res.data_channel === null) {
+        await dataBase.updateOne({ username }, { $set: { data_channel: { chat:res.data_channel.chat, date: res.data_channel.date, join: true } } });
+        await ctx.telegram.approveChatJoinRequest( res.data_channel.chat.id, id );
+        await ctx.reply("🛠️ <b>Вы прошли проверку</b>", { parse_mode: "HTML" });
+      }
+      else{
+        await ctx.reply("🏁 <b>Вы уже прошли проверку</b>", { parse_mode: "HTML" });
+      }
     }
-  }
+  });
 });
+
+
+
+
+
+
+
+
+
+
 
 //Сцены
 
@@ -199,6 +217,9 @@ const writeHelpAdmin = new Scenes.WizardScene(
 const stage = new Scenes.Stage([writeHelp, writeHelpAdmin]);
 bot.use(stage.middleware());
 
+
+
+// Действия по нажатию inline кнопки
 bot.action(/^user/i, async (ctx) => {
   if (!ctx.session.write_admin) {
     ctx.session.write_admin = false;
@@ -213,29 +234,140 @@ bot.action("help", async (ctx) => {
   }
 });
 
+bot.action("menu", async (ctx) => {
+  ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
+    caption: "Меню бота",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "💳 Пополнить баланс", callback_data: `pay_balance` }, { text: "🛒 Купить товар", callback_data: `buy_item` }],
+        [{ text: "🧠 Нейросети", callback_data: `ai_menu` }, { text: "🌐 Перевод текста", callback_data: `translate` }],
+        [{ text: "✅ Проверка подписок", callback_data: `check_sub` }, { text: "📨 Приняьтие заявок", callback_data: `connect_admin` }],
+        [{ text: "📊 Генерация QR-кода", callback_data: `qr_code` }, { text: "🕵️‍♂️ Фотошпион", callback_data: `photo_shpion` }],
+        [{ text: "📱 Мини приложения", callback_data: `mini_app` }],
+        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }]
+      ]
+    }
+  });
+});
+
+
+
+
+
+
+
+
+// Действия по нажатию кнопки из keyboard
+bot.hears('🗂️ Меню', async (ctx) => {
+  await ctx.deleteMessage();
+  await ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
+    caption: "Меню бота",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "💳 Пополнить баланс", callback_data: `pay_balance` }, { text: "🛒 Купить товар", callback_data: `buy_item` }],
+        [{ text: "🧠 Нейросети", callback_data: `ai_menu` }, { text: "🌐 Перевод текста", callback_data: `translate` }],
+        [{ text: "✅ Проверка подписок", callback_data: `check_sub` }, { text: "📨 Приняьтие заявок", callback_data: `connect_admin` }],
+        [{ text: "📊 Генерация QR-кода", callback_data: `qr_code` }, { text: "🕵️‍♂️ Фотошпион", callback_data: `photo_shpion` }],
+        [{ text: "📱 Мини приложения", callback_data: `mini_app` }],
+        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }]
+      ]
+    }
+  });
+});
+bot.hears('👨‍💻 Связь с админом', async (ctx) => {
+  await ctx.deleteMessage();
+  if (!ctx.session.write_user) {
+    ctx.session.write_user = false;
+    ctx.scene.enter("write_help");
+  }
+});
+// bot.hears('👤 Мой профиль', async (ctx) => {
+//   const { id, first_name, username, language_code } = ctx.from;
+//   dataBase.findOne({ username }).then(async (res) => {
+//     console.log(res)
+//     await ctx.reply(`<b>👤 Мой профиль</b>\n🆔 ID: ${res.id}
+// 📱 Username: @${res.username}
+// 💰 Баланс: ${res.balance} ₽
+// 🔗 Рефералов: 0
+//       `,{ parse_mode: 'HTML' })
+//   })
+// })
+
+
+
+
+
+
+
+
+
+
 // Комманды
 bot.command("start", async (ctx) => {
-  ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
-    caption: `<b>Привет! 👋 Я — многофункциональный бот с мощным набором функций! Могу сгенерировать qr-код, имеяться нейросети, мини-игры, а также полноценный мини приложения. Загляни в /about — там всё, что я умею!</b>`,
-    parse_mode: "HTML",
+  const { id, first_name, username, language_code } = ctx.from;
+
+  dataBase.findOne({ id, first_name, username }).then((res) => {
+    if (!res) {
+      console.log("Запись  создаеться");
+      dataBase.insertOne({ id, first_name, username, language_code, date: dateNow(), balance: 0, data_channel: null });
+    } else {
+      console.log("Запись уже создана");
+    }
   });
+
+  ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
+    caption: `<b>Привет! 👋 Я — многофункциональный бот с мощным набором функций!</b>\n<blockquote>Имеються нейросети, мини-игры, полноценные мини приложения и тд.\nЗагляни в /about — там всё, что я умею!</blockquote>`,
+    parse_mode: "HTML",
+    reply_markup: {
+      keyboard: [
+        [{ text: "🗂️ Меню", callback_data: `menu` }],
+        [{ text: "🧠 Купить бота", callback_data: `ai_menu` }, { text: "👤 Мой профиль", callback_data: `translate` }],
+        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }]
+      ]
+    }
+  });
+});
+
+
+bot.command("drop", async (ctx) => {
+  dataBase.deleteMany({});
+  ctx.reply("DROP COLLECTION");
 });
 
 bot.command("about", async (ctx) => {
   ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
-    caption: `✨ <b>Что я умею:</b><blockquote>• Генерировать QR-коды по любой ссылке (/qr)
-• Нейросеть для генерации текста и идей (/ai)
+    caption: `✨ <b>Что я умею:</b>\n<blockquote>• Генерировать QR-коды
+• Нейросеть для генерации текста
+• Переводить текст
 
+• Реферальная система
+• Проверка подписок
+• Принятие заявок через бота
+• Связь с админом
 
+• Оплата звездами
+• Оплато криптовалютой
+• Оплата ЮMoney
 
-    • Запустить игру «Угадай минерал» (/mineralgame)
+• Покупа звезд
+• Покупка накрутки
 
-• Нейросеть для генерации текста и идей (/ai)
-• И ещё куча полезных команд — смотри /help
-</blockquote>`,
+• Создание розагрышей
+• Скачивание видео с тиктока
+</blockquote>\n📱 <b>Мини приложения:</b>\n<blockquote>• Копия кликера Notcoin
+• Копия фейк казино
+• Интерфейс для ии
+</blockquote>
+
+`,
     parse_mode: "HTML",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "🗂️ Меню", callback_data: `menu` }],
+      ],
+    }
   });
-})
+});
 
 
 bot.command("help", async (ctx) => {
@@ -243,6 +375,14 @@ bot.command("help", async (ctx) => {
     ctx.session.write_user = false;
     ctx.scene.enter("write_help");
   }
+});
+
+bot.command("db", async (ctx) => {
+  dataBase.find({}).then((res) => {
+    ctx.reply("```js" + JSON.stringify(res, null, 2) + "```", {
+      parse_mode: "Markdown",
+    });
+  });
 });
 
 // bot.telegram.sendPhoto(
@@ -256,12 +396,16 @@ bot.command("help", async (ctx) => {
 // );
 
 //bot.on('text', ctx => console.log(ctx.update.message.from));
-//bot.launch();
+bot.launch();
 
-app.get('/sleep', async (req, res) =>{
-  res.send({type: 200});
+function dateNow() {
+  return new Date().getTime();
+}
+
+app.get("/sleep", async (req, res) => {
+  res.send({ type: 200 });
 });
 
-app.listen(3000, err =>{
-  err ? err : console.log('STARTED SERVER');
-})
+app.listen(3000, (err) => {
+  err ? err : console.log("STARTED SERVER");
+});
