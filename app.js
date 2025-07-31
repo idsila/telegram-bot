@@ -256,7 +256,7 @@ bot.command("help", async (ctx) => {
 // );
 
 //bot.on('text', ctx => console.log(ctx.update.message.from));
-bot.launch();
+//bot.launch();
 
 app.get('/sleep', async (req, res) =>{
   res.send({type: 200});
