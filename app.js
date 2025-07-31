@@ -21,7 +21,7 @@ bot.use(
   })
 );
 
-bot.telegram.setMyCommands(commands);
+//bot.telegram.setMyCommands(commands);
 
 
 
@@ -281,17 +281,26 @@ bot.hears('👨‍💻 Связь с админом', async (ctx) => {
     ctx.scene.enter("write_help");
   }
 });
-// bot.hears('👤 Мой профиль', async (ctx) => {
-//   const { id, first_name, username, language_code } = ctx.from;
-//   dataBase.findOne({ username }).then(async (res) => {
-//     console.log(res)
-//     await ctx.reply(`<b>👤 Мой профиль</b>\n🆔 ID: ${res.id}
-// 📱 Username: @${res.username}
-// 💰 Баланс: ${res.balance} ₽
-// 🔗 Рефералов: 0
-//       `,{ parse_mode: 'HTML' })
-//   })
-// })
+bot.hears('👨 Личный кабинет', async (ctx) => {
+  const { id, first_name, username, language_code } = ctx.from;
+  dataBase.findOne({ username }).then(async (res) => {
+    
+    await ctx.deleteMessage();
+    await ctx.reply(`<b>Информация по 👨 аккаунту:</b>\n🆔 ID: <code>${res.id}</code>
+💰 Баланс: ${res.balance} ₽
+
+🤝 Партнерская программа: - /ref
+‍├ Рефералов:  0
+`,{
+   parse_mode: 'HTML',
+   reply_markup: {
+    inline_keyboard: [
+      [{ text: "💳 Пополнить баланс", callback_data: `pay_balance` }]
+    ]
+  }
+  })
+  })
+})
 
 
 
@@ -321,7 +330,7 @@ bot.command("start", async (ctx) => {
     reply_markup: {
       keyboard: [
         [{ text: "🗂️ Меню", callback_data: `menu` }],
-        [{ text: "🧠 Купить бота", callback_data: `ai_menu` }, { text: "👤 Мой профиль", callback_data: `translate` }],
+        [{ text: "🧠 Купить бота", callback_data: `ai_menu` }, { text: "👨 Личный кабинет", callback_data: `translate` }],
         [{ text: "👨‍💻 Связь с админом", callback_data: `help` }]
       ]
     }
