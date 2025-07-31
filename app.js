@@ -234,7 +234,8 @@ bot.action("help", async (ctx) => {
   }
 });
 
-bot.action("menu", async (ctx) => {
+bot.action(["menu", "menu_back"], async (ctx) => {
+  await ctx.deleteMessage();
   ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
     caption: "Меню бота",
     reply_markup: {
@@ -250,6 +251,20 @@ bot.action("menu", async (ctx) => {
   });
 });
 
+
+bot.action("pay_balance", async (ctx) => {
+  await ctx.deleteMessage();
+  await ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
+    caption: "Это все способы пополнения баланса.",
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: "💳 ЮMoney", callback_data: `pay_umoney` }, { text: "🧠 Крипта", callback_data: `pay_crypto` }],
+        [{ text: "⭐ Звезды", callback_data: `pay_stars` , pay:true}],
+        [{ text: "<< Назад", callback_data: `menu_back` }],
+     ]
+    }
+  });
+});
 
 
 
