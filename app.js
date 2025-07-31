@@ -4,6 +4,7 @@ const commands = require("./commands.js");
 const dataBase = require("./dataBase.js");
 const { Telegraf, session, Scenes } = require("telegraf");
 const express = require("express");
+const axios = require("axios");
 const cors = require("cors");
 const { parse } = require("dotenv");
 const app = express();
@@ -18,31 +19,42 @@ bot.use(
   session({
     defaultSession: () => ({ write_user: false }),
     defaultSession: () => ({ write_admin: false }),
+    defaultSession: () => ({ qr_code: false }),
   })
 );
 
 //bot.telegram.setMyCommands(commands);
 
-
-
 // Система принятий и проверок в канал
 bot.on("chat_join_request", async (ctx) => {
-  const { chat, from: { id, first_name, username, language_code }, date } = ctx.chatJoinRequest;
+  const {
+    chat,
+    from: { id, first_name, username, language_code },
+    date,
+  } = ctx.chatJoinRequest;
   dataBase.findOne({ username }).then(async (res) => {
-    if(!res){
+    if (!res) {
       //Запись в базе данных создана
       dataBase.insertOne({
-        id, first_name, username, language_code, date: dateNow(), balance: 0,
+        id,
+        first_name,
+        username,
+        language_code,
+        date: dateNow(),
+        balance: 0,
         data_channel: { chat: chat, date: date, join: false },
       });
-    }
-    else if(res.data_channel === null || res.data_channel?.join){
+    } else if (res.data_channel === null || res.data_channel?.join) {
       //Пользователь уже есть в базе данных нужно обновить данные
-      dataBase.updateOne({ username }, { $set: { data_channel: { chat: chat, date: date, join: false } } })
+      dataBase.updateOne(
+        { username },
+        { $set: { data_channel: { chat: chat, date: date, join: false } } }
+      );
     }
   });
 
-  await bot.telegram.sendPhoto(id,
+  await bot.telegram.sendPhoto(
+    id,
     "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
     {
       caption:
@@ -55,35 +67,35 @@ bot.on("chat_join_request", async (ctx) => {
       },
     }
   );
-
-
-
 });
 bot.action("approve_join", async (ctx) => {
-  const { id, first_name, username, language_code } = ctx.update.callback_query.from;
+  const { id, first_name, username, language_code } =
+    ctx.update.callback_query.from;
   dataBase.findOne({ username }).then(async (res) => {
-    if(res){
+    if (res) {
       if (!res.data_channel?.join || res.data_channel === null) {
-        await dataBase.updateOne({ username }, { $set: { data_channel: { chat:res.data_channel.chat, date: res.data_channel.date, join: true } } });
-        await ctx.telegram.approveChatJoinRequest( res.data_channel.chat.id, id );
+        await dataBase.updateOne(
+          { username },
+          {
+            $set: {
+              data_channel: {
+                chat: res.data_channel.chat,
+                date: res.data_channel.date,
+                join: true,
+              },
+            },
+          }
+        );
+        await ctx.telegram.approveChatJoinRequest(res.data_channel.chat.id, id);
         await ctx.reply("🛠️ <b>Вы прошли проверку</b>", { parse_mode: "HTML" });
-      }
-      else{
-        await ctx.reply("🏁 <b>Вы уже прошли проверку</b>", { parse_mode: "HTML" });
+      } else {
+        await ctx.reply("🏁 <b>Вы уже прошли проверку</b>", {
+          parse_mode: "HTML",
+        });
       }
     }
   });
 });
-
-
-
-
-
-
-
-
-
-
 
 //Сцены
 
@@ -214,10 +226,49 @@ const writeHelpAdmin = new Scenes.WizardScene(
   }
 );
 
-const stage = new Scenes.Stage([writeHelp, writeHelpAdmin]);
+
+const qrCode = new Scenes.WizardScene(
+  "qr_code",
+  (ctx) => {
+    ctx.session.qr_code = true;
+    ctx.reply(
+      `<b>Отправьте текст или ссылку для генерации qr-кода @${ctx.from.username}</b>`,
+      {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "❌ Отменить", callback_data: "cancel_qr_code" }],
+          ],
+        },
+      }
+    );
+    return ctx.wizard.next();
+  },
+  (ctx) => {
+    ctx.deleteMessage();
+    if (ctx.callbackQuery?.data === "cancel_qr_code") {
+      ctx.session.qr_code = false;
+      return ctx.scene.leave();
+    }
+    ctx.session.qr_code = false;
+
+    const text = ctx.update.message.text;
+    ctx.telegram.sendPhoto(ctx.from.id, `https://quickchart.io/qr?text=${text}&size=400`, {
+      caption: `🔔 <b>QR-code сгенерирован</b> >
+        \n<blockquote>${text}</blockquote>`,
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [[{ text: "💻 Сгнерировать ещё qr-code", callback_data: `qr_code` }]],
+      },
+    });
+
+    return ctx.scene.leave();
+  }
+);
+
+
+const stage = new Scenes.Stage([writeHelp, writeHelpAdmin, qrCode]);
 bot.use(stage.middleware());
-
-
 
 // Действия по нажатию inline кнопки
 bot.action(/^user/i, async (ctx) => {
@@ -237,94 +288,179 @@ bot.action("help", async (ctx) => {
 bot.action(["menu", "menu_back"], async (ctx) => {
   await ctx.deleteMessage();
   ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
-    caption: "Меню бота",
+    caption: "<b>Меню бота</b>",
+    parse_mode: "HTML",
     reply_markup: {
       inline_keyboard: [
-        [{ text: "💳 Пополнить баланс", callback_data: `pay_balance` }, { text: "🛒 Купить товар", callback_data: `buy_item` }],
-        [{ text: "🧠 Нейросети", callback_data: `ai_menu` }, { text: "🌐 Перевод текста", callback_data: `translate` }],
-        [{ text: "✅ Проверка подписок", callback_data: `check_sub` }, { text: "📨 Приняьтие заявок", callback_data: `connect_admin` }],
-        [{ text: "📊 Генерация QR-кода", callback_data: `qr_code` }, { text: "🕵️‍♂️ Фотошпион", callback_data: `photo_shpion` }],
+        [
+          { text: "💳 Пополнить баланс", callback_data: `pay_balance` },
+          { text: "🛒 Купить товар", callback_data: `buy_item` },
+        ],
+        [
+          { text: "🧠 Нейросети", callback_data: `ai_menu` },
+          { text: "🌐 Перевод текста", callback_data: `translate` },
+        ],
+        [
+          { text: "✅ Проверка подписок", callback_data: `check_sub` },
+          { text: "📨 Приняьтие заявок", callback_data: `connect_admin` },
+        ],
+        [
+          { text: "📊 Генерация QR-кода", callback_data: `qr_code` },
+          { text: "🕵️‍♂️ Фотошпион", callback_data: `photo_shpion` },
+        ],
         [{ text: "📱 Мини приложения", callback_data: `mini_app` }],
-        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }]
-      ]
-    }
+        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }],
+      ],
+    },
   });
 });
-
 
 bot.action("pay_balance", async (ctx) => {
   await ctx.deleteMessage();
-  await ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
-    caption: "Это все способы пополнения баланса.",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "💳 ЮMoney", callback_data: `pay_umoney` }, { text: "🧠 Крипта", callback_data: `pay_crypto` }],
-        [{ text: "⭐ Звезды", callback_data: `pay_stars` , pay:true}],
-        [{ text: "<< Назад", callback_data: `menu_back` }],
-     ]
+  await ctx.replyWithPhoto(
+    "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+    {
+      caption: "<b>💸 Это все способы пополнения баланса.</b>",
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "💳 ЮMoney", callback_data: `pay_umoney` },
+            { text: "🧠 Крипта", callback_data: `pay_crypto` },
+          ],
+          [{ text: "⭐ Звезды", callback_data: `pay_stars`, pay: true }],
+          [{ text: "<< Назад", callback_data: `menu_back` }],
+        ],
+      },
     }
-  });
+  );
+});
+
+bot.action("pay_umoney", async (ctx) => {
+  await ctx.deleteMessage();
+  await ctx.replyWithPhoto(
+    "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+    {
+      caption: "<b>💸 Это пополнения баланса через ЮMoney.</b>",
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "50₽", callback_data: `pay_umoney_50` },
+            { text: "100₽", callback_data: `pay_umoney_100` },
+            { text: "150₽", callback_data: `pay_umoney_150` },
+          ],
+          [
+            { text: "200₽", callback_data: `pay_umoney_200` },
+            { text: "250₽", callback_data: `pay_umoney_250` },
+            { text: "300₽", callback_data: `pay_umoney_300` },
+          ],
+          [{ text: "<< Назад", callback_data: `pay_balance` }],
+        ],
+      },
+    }
+  );
+});
+
+
+
+bot.action("mini_app", async (ctx) => {
+  await ctx.deleteMessage();
+  await ctx.replyWithPhoto(
+    "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+    {
+      caption: "<b>📱 Это мини приложения.</b>",
+      parse_mode: "HTML",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "Кликер Notcoin", web_app: { url: "https://notcoin-ids.vercel.app/" } },
+            { text: "Казино кейсы", web_app: { url: "https://notcoin-ids.vercel.app/" } },
+
+          ],
+          [
+            { text: "Нейронка", web_app: { url: "https://notcoin-ids.vercel.app/" } },
+          ],
+          [{ text: "<< Назад", callback_data: "menu_back" }],
+        ],
+      },
+    }
+  );
 });
 
 
 
 
 
-
+bot.action("qr_code", async (ctx) => {
+  await ctx.deleteMessage();
+  if (!ctx.session.qr_code) {
+    ctx.session.qr_code = false;
+    ctx.scene.enter("qr_code");
+  }
+});
 
 // Действия по нажатию кнопки из keyboard
-bot.hears('🗂️ Меню', async (ctx) => {
+bot.hears("🗂️ Меню", async (ctx) => {
   await ctx.deleteMessage();
-  await ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
-    caption: "Меню бота",
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: "💳 Пополнить баланс", callback_data: `pay_balance` }, { text: "🛒 Купить товар", callback_data: `buy_item` }],
-        [{ text: "🧠 Нейросети", callback_data: `ai_menu` }, { text: "🌐 Перевод текста", callback_data: `translate` }],
-        [{ text: "✅ Проверка подписок", callback_data: `check_sub` }, { text: "📨 Приняьтие заявок", callback_data: `connect_admin` }],
-        [{ text: "📊 Генерация QR-кода", callback_data: `qr_code` }, { text: "🕵️‍♂️ Фотошпион", callback_data: `photo_shpion` }],
-        [{ text: "📱 Мини приложения", callback_data: `mini_app` }],
-        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }]
-      ]
+  await ctx.replyWithPhoto(
+    "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+    {
+      caption: "Меню бота",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: "💳 Пополнить баланс", callback_data: `pay_balance` },
+            { text: "🛒 Купить товар", callback_data: `buy_item` },
+          ],
+          [
+            { text: "🧠 Нейросети", callback_data: `ai_menu` },
+            { text: "🌐 Перевод текста", callback_data: `translate` },
+          ],
+          [
+            { text: "✅ Проверка подписок", callback_data: `check_sub` },
+            { text: "📨 Приняьтие заявок", callback_data: `connect_admin` },
+          ],
+          [
+            { text: "📊 Генерация QR-кода", callback_data: `qr_code` },
+            { text: "🕵️‍♂️ Фотошпион", callback_data: `photo_shpion` },
+          ],
+          [{ text: "📱 Мини приложения", callback_data: `mini_app` }],
+          [{ text: "👨‍💻 Связь с админом", callback_data: `help` }],
+        ],
+      },
     }
-  });
+  );
 });
-bot.hears('👨‍💻 Связь с админом', async (ctx) => {
+bot.hears("👨‍💻 Связь с админом", async (ctx) => {
   await ctx.deleteMessage();
   if (!ctx.session.write_user) {
     ctx.session.write_user = false;
     ctx.scene.enter("write_help");
   }
 });
-bot.hears('👨 Личный кабинет', async (ctx) => {
+bot.hears("👨 Личный кабинет", async (ctx) => {
   const { id, first_name, username, language_code } = ctx.from;
   dataBase.findOne({ username }).then(async (res) => {
-    
     await ctx.deleteMessage();
-    await ctx.reply(`<b>Информация по 👨 аккаунту:</b>\n🆔 ID: <code>${res.id}</code>
+    await ctx.reply(
+      `<b>Информация по 👨 аккаунту:</b>\n🆔 ID: <code>${res.id}</code>
 💰 Баланс: ${res.balance} ₽
 
 🤝 Партнерская программа: - /ref
 ‍├ Рефералов:  0
-`,{
-   parse_mode: 'HTML',
-   reply_markup: {
-    inline_keyboard: [
-      [{ text: "💳 Пополнить баланс", callback_data: `pay_balance` }]
-    ]
-  }
-  })
-  })
-})
-
-
-
-
-
-
-
-
-
+`,
+      {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "💳 Пополнить баланс", callback_data: `pay_balance` }],
+          ],
+        },
+      }
+    );
+  });
+});
 
 // Комманды
 bot.command("start", async (ctx) => {
@@ -333,7 +469,15 @@ bot.command("start", async (ctx) => {
   dataBase.findOne({ id, first_name, username }).then((res) => {
     if (!res) {
       console.log("Запись  создаеться");
-      dataBase.insertOne({ id, first_name, username, language_code, date: dateNow(), balance: 0, data_channel: null });
+      dataBase.insertOne({
+        id,
+        first_name,
+        username,
+        language_code,
+        date: dateNow(),
+        balance: 0,
+        data_channel: null,
+      });
     } else {
       console.log("Запись уже создана");
     }
@@ -345,13 +489,15 @@ bot.command("start", async (ctx) => {
     reply_markup: {
       keyboard: [
         [{ text: "🗂️ Меню", callback_data: `menu` }],
-        [{ text: "🧠 Купить бота", callback_data: `ai_menu` }, { text: "👨 Личный кабинет", callback_data: `translate` }],
-        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }]
-      ]
-    }
+        [
+          { text: "🧠 Купить бота", callback_data: `ai_menu` },
+          { text: "👨 Личный кабинет", callback_data: `translate` },
+        ],
+        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }],
+      ],
+    },
   });
 });
-
 
 bot.command("drop", async (ctx) => {
   dataBase.deleteMany({});
@@ -386,13 +532,10 @@ bot.command("about", async (ctx) => {
 `,
     parse_mode: "HTML",
     reply_markup: {
-      inline_keyboard: [
-        [{ text: "🗂️ Меню", callback_data: `menu` }],
-      ],
-    }
+      inline_keyboard: [[{ text: "🗂️ Меню", callback_data: `menu` }]],
+    },
   });
 });
-
 
 bot.command("help", async (ctx) => {
   if (!ctx.session.write_user) {
@@ -421,6 +564,23 @@ bot.command("db", async (ctx) => {
 
 //bot.on('text', ctx => console.log(ctx.update.message.from));
 bot.launch();
+
+
+
+// const res = await axios("https://ru.libretranslate.com/translate", {
+// 	method: "POST",
+// 	body: JSON.stringify({
+// 		q: "",
+// 		source: "auto",
+// 		target: "ru",
+// 		format: "text",
+// 		alternatives: 3,
+// 		api_key: ""
+// 	}),
+// 	headers: { "Content-Type": "application/json" }
+// });
+
+// console.log(await res.json());
 
 function dateNow() {
   return new Date().getTime();
