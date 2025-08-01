@@ -20,6 +20,8 @@ bot.use(
     defaultSession: () => ({ write_user: false }),
     defaultSession: () => ({ write_admin: false }),
     defaultSession: () => ({ qr_code: false }),
+    defaultSession: () => ({ ai_disabled: false }),
+    defaultSession: () => ({ ai_answer: false }),
   })
 );
 
@@ -40,6 +42,7 @@ bot.on("chat_join_request", async (ctx) => {
         first_name,
         username,
         language_code,
+        refferals: 0,
         date: dateNow(),
         balance: 0,
         data_channel: { chat: chat, date: date, join: false },
@@ -285,7 +288,7 @@ bot.action("help", async (ctx) => {
   }
 });
 
-bot.action(["menu", "menu_back"], async (ctx) => {
+bot.action("menu", async (ctx) => {
   await ctx.deleteMessage();
   ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
     caption: "<b>Меню бота</b>",
@@ -297,8 +300,7 @@ bot.action(["menu", "menu_back"], async (ctx) => {
           { text: "🛒 Купить товар", callback_data: `buy_item` },
         ],
         [
-          { text: "🧠 Нейросети", callback_data: `ai_menu` },
-          { text: "🌐 Перевод текста", callback_data: `translate` },
+          { text: "🧠 Нейросети", callback_data: `ai_menu` }
         ],
         [
           { text: "✅ Проверка подписок", callback_data: `check_sub` },
@@ -315,34 +317,90 @@ bot.action(["menu", "menu_back"], async (ctx) => {
   });
 });
 
-bot.action("pay_balance", async (ctx) => {
-  await ctx.deleteMessage();
-  await ctx.replyWithPhoto(
-    "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
-    {
-      caption: "<b>💸 Это все способы пополнения баланса.</b>",
-      parse_mode: "HTML",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: "💳 ЮMoney", callback_data: `pay_umoney` },
-            { text: "🧠 Крипта", callback_data: `pay_crypto` },
-          ],
-          [{ text: "⭐ Звезды", callback_data: `pay_stars`, pay: true }],
-          [{ text: "<< Назад", callback_data: `menu_back` }],
+
+
+bot.action("menu_back", async (ctx) => {
+
+  await ctx.editMessageMedia({
+    type:"photo",
+    media: "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+    caption: "<b>Меню бота</b>",
+    parse_mode: "HTML"
+  },
+  {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "💳 Пополнить баланс", callback_data: `pay_balance` },
+          { text: "🛒 Купить товар", callback_data: `buy_item` },
         ],
-      },
+        [
+          { text: "🧠 Нейросети", callback_data: `ai_menu` },
+        ],
+        [
+          { text: "✅ Проверка подписок", callback_data: `check_sub` },
+          { text: "📨 Приняьтие заявок", callback_data: `connect_admin` },
+        ],
+        [
+          { text: "📊 Генерация QR-кода", callback_data: `qr_code` },
+          { text: "🕵️‍♂️ Фотошпион", callback_data: `photo_shpion` },
+        ],
+        [{ text: "📱 Мини приложения", callback_data: `mini_app` }],
+        [{ text: "👨‍💻 Связь с админом", callback_data: `help` }],
+      ],
+    },
+  });
+});
+
+
+bot.action("pay_balance", async (ctx) => {
+  //await ctx.deleteMessage();
+
+
+  await ctx.editMessageMedia({
+    type: 'photo', 
+    media: 'https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg',
+    caption: '<b>💸 Это все способы пополнения баланса.</b>',                     
+    parse_mode: 'HTML'
+  }, {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "💳 ЮMoney", callback_data: `pay_umoney` },
+          { text: "🧠 Крипта", callback_data: `pay_crypto` },
+        ],
+        [{ text: "⭐ Звезды", callback_data: `pay_stars`, pay: true }],
+        [{ text: "<< Назад", callback_data: `menu_back` }],
+      ],
     }
-  );
+  })
+  // await ctx.replyWithPhoto(
+  //   "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+  //   {
+  //     caption: "<b>💸 Это все способы пополнения баланса.</b>",
+  //     parse_mode: "HTML",
+  //     reply_markup: {
+  //       inline_keyboard: [
+  //         [
+  //           { text: "💳 ЮMoney", callback_data: `pay_umoney` },
+  //           { text: "🧠 Крипта", callback_data: `pay_crypto` },
+  //         ],
+  //         [{ text: "⭐ Звезды", callback_data: `pay_stars`, pay: true }],
+  //         [{ text: "<< Назад", callback_data: `menu_back` }],
+  //       ],
+  //     },
+  //   }
+  // );
+
 });
 
 bot.action("pay_umoney", async (ctx) => {
-  await ctx.deleteMessage();
-  await ctx.replyWithPhoto(
-    "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
-    {
+  await ctx.editMessageMedia({
+      type:"photo",
+      media:"https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
       caption: "<b>💸 Это пополнения баланса через ЮMoney.</b>",
-      parse_mode: "HTML",
+      parse_mode: "HTML"
+  },{
       reply_markup: {
         inline_keyboard: [
           [
@@ -365,12 +423,12 @@ bot.action("pay_umoney", async (ctx) => {
 
 
 bot.action("mini_app", async (ctx) => {
-  await ctx.deleteMessage();
-  await ctx.replyWithPhoto(
-    "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
-    {
+  await ctx.editMessageMedia({
+      type:"photo",
+      media:"https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
       caption: "<b>📱 Это мини приложения.</b>",
-      parse_mode: "HTML",
+      parse_mode: "HTML"
+  },{
       reply_markup: {
         inline_keyboard: [
           [
@@ -414,8 +472,7 @@ bot.hears("🗂️ Меню", async (ctx) => {
             { text: "🛒 Купить товар", callback_data: `buy_item` },
           ],
           [
-            { text: "🧠 Нейросети", callback_data: `ai_menu` },
-            { text: "🌐 Перевод текста", callback_data: `translate` },
+            { text: "🧠 Нейросети", callback_data: `ai_menu` }
           ],
           [
             { text: "✅ Проверка подписок", callback_data: `check_sub` },
@@ -448,7 +505,7 @@ bot.hears("👨 Личный кабинет", async (ctx) => {
 💰 Баланс: ${res.balance} ₽
 
 🤝 Партнерская программа: - /ref
-‍├ Рефералов:  0
+‍├ Рефералов: ${res.refferals}
 `,
       {
         parse_mode: "HTML",
@@ -474,6 +531,7 @@ bot.command("start", async (ctx) => {
         first_name,
         username,
         language_code,
+        refferals: 0,
         date: dateNow(),
         balance: 0,
         data_channel: null,
@@ -552,6 +610,13 @@ bot.command("db", async (ctx) => {
   });
 });
 
+bot.command("stop", async (ctx) => {
+  if(!ctx.session.ai_disabled){
+    ctx.session.ai_disabled = true;
+  }
+});
+
+
 // bot.telegram.sendPhoto(
 //   ADMIN_ID,
 //   "https://quickchart.io/qr?text=https://best-earn.vercel.app&size=400",
@@ -563,24 +628,66 @@ bot.command("db", async (ctx) => {
 // );
 
 //bot.on('text', ctx => console.log(ctx.update.message.from));
+
+const delay = ms => new Promise(res => { setTimeout(() => res(),ms) });
+
+
+const messageAi = { }
+
+bot.on('message', async (ctx) =>{
+  if(!ctx.session.ai_disabled){
+    console.log('Написал мне');
+    await ctx.replyWithChatAction('typing');
+    const txt = ctx.message.text;
+    //await delay(2000);  
+    const res = await askAI(txt);
+     //reply_to_message_id: ctx.message.message_id
+    await ctx.reply(`🔔 <b>Ответ DeepSeek</b> >\n<blockquote>${res}</blockquote>`, {
+      parse_mode: "HTML",
+      reply_to_message_id: ctx.message.message_id
+    });
+    
+  }
+})
+
+
+
+
+
 bot.launch();
 
 
+const TOKEN = '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';
+async function askAI(ask){
+  return await axios.post("https://openrouter.ai/api/v1/chat/completions", {
+      "model": "deepseek/deepseek-chat-v3-0324:free",
+      "messages": [
+        {
+          "role": "user",
+          "content": ask
+        }
+      ]
+    },{
+     headers: {
+      "Authorization": `Bearer ${TOKEN}`,
+      "HTTP-Referer": "https://guttural-hurricane-pixie.glitch.me/sleep", // Optional. Site URL for rankings on openrouter.ai.
+      "X-Title": "Mutual Boost 2", // Optional. Site title for rankings on openrouter.ai.
+      "Content-Type": "application/json"
+    }      
+  
+  
+  }).then( async (res) =>{
+    const response = await res.data.choices[0].message.content;
+    return response
+  })
+  .catch(async (e) => {
+    console.log(e)
+  })
+  
+}
 
-// const res = await axios("https://ru.libretranslate.com/translate", {
-// 	method: "POST",
-// 	body: JSON.stringify({
-// 		q: "",
-// 		source: "auto",
-// 		target: "ru",
-// 		format: "text",
-// 		alternatives: 3,
-// 		api_key: ""
-// 	}),
-// 	headers: { "Content-Type": "application/json" }
-// });
 
-// console.log(await res.json());
+
 
 function dateNow() {
   return new Date().getTime();
