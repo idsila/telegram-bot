@@ -28,7 +28,7 @@ bot.use(
 //bot.telegram.setMyCommands(commands);
 
 // Система принятий и проверок в канал
-bot.on("chat_join_request", async (ctx) => {
+bot.on("chat_join_requests", async (ctx) => {
   const {
     chat,
     from: { id, first_name, username, language_code },
@@ -657,7 +657,10 @@ bot.on('message', async (ctx) =>{
 bot.launch();
 
 
-const TOKEN = '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';
+const TOKEN1 =
+'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';
+const TOKEN2 =
+'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';
 async function askAI(ask){
   return await axios.post("https://openrouter.ai/api/v1/chat/completions", {
       "model": "deepseek/deepseek-chat-v3-0324:free",
@@ -669,7 +672,7 @@ async function askAI(ask){
       ]
     },{
      headers: {
-      "Authorization": `Bearer ${TOKEN}`,
+      "Authorization": `Bearer ${TOKEN2}`,
       "HTTP-Referer": "https://guttural-hurricane-pixie.glitch.me/sleep", // Optional. Site URL for rankings on openrouter.ai.
       "X-Title": "Mutual Boost 2", // Optional. Site title for rankings on openrouter.ai.
       "Content-Type": "application/json"
@@ -678,13 +681,14 @@ async function askAI(ask){
   
   }).then( async (res) =>{
     const response = await res.data.choices[0].message.content;
+    console.log(response);
     return response
   })
   .catch(async (e) => {
     console.log(e)
   })
-  
-}
+} 
+//askAI('Hello')
 
 
 
@@ -696,6 +700,16 @@ function dateNow() {
 app.get("/sleep", async (req, res) => {
   res.send({ type: 200 });
 });
+
+app.post('/ai', async (req,res) =>{
+  const { ask }  = req.body;
+  //console.log(req.body)
+  //await delay(2000);
+  
+  const answer = await askAI(ask);
+  await res.send({ answer });
+});
+
 
 app.listen(3000, (err) => {
   err ? err : console.log("STARTED SERVER");
