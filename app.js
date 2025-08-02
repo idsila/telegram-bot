@@ -290,8 +290,8 @@ bot.action("help", async (ctx) => {
 
 bot.action("menu", async (ctx) => {
   await ctx.deleteMessage();
-  ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
-    caption: "<b>Меню бота</b>",
+  ctx.replyWithPhoto("https://i.ibb.co/qYJqZjqG/card-1001.jpg", {
+    caption: "",
     parse_mode: "HTML",
     reply_markup: {
       inline_keyboard: [
@@ -300,7 +300,7 @@ bot.action("menu", async (ctx) => {
           { text: "🛒 Купить товар", callback_data: `buy_item` },
         ],
         [
-          { text: "🧠 Нейросети", callback_data: `ai_menu` }
+          { text: "🧠 Нейросеть", callback_data: `ai_menu` }
         ],
         [
           { text: "✅ Проверка подписок", callback_data: `check_sub` },
@@ -320,11 +320,14 @@ bot.action("menu", async (ctx) => {
 
 
 bot.action("menu_back", async (ctx) => {
+  if(ctx.session.ai_disabled){
+    ctx.session.ai_disabled = false;
+  }
 
   await ctx.editMessageMedia({
     type:"photo",
-    media: "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
-    caption: "<b>Меню бота</b>",
+    media: "https://i.ibb.co/qYJqZjqG/card-1001.jpg",
+    caption: "",
     parse_mode: "HTML"
   },
   {
@@ -335,7 +338,7 @@ bot.action("menu_back", async (ctx) => {
           { text: "🛒 Купить товар", callback_data: `buy_item` },
         ],
         [
-          { text: "🧠 Нейросети", callback_data: `ai_menu` },
+          { text: "🧠 Нейросеть", callback_data: `ai_menu` },
         ],
         [
           { text: "✅ Проверка подписок", callback_data: `check_sub` },
@@ -359,7 +362,7 @@ bot.action("pay_balance", async (ctx) => {
 
   await ctx.editMessageMedia({
     type: 'photo', 
-    media: 'https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg',
+    media: 'https://i.ibb.co/tTQ574gv/card-1002.jpg',
     caption: '<b>💸 Это все способы пополнения баланса.</b>',                     
     parse_mode: 'HTML'
   }, {
@@ -397,7 +400,7 @@ bot.action("pay_balance", async (ctx) => {
 bot.action("pay_umoney", async (ctx) => {
   await ctx.editMessageMedia({
       type:"photo",
-      media:"https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+      media:"https://i.ibb.co/fbWNWJY/card-1003.jpg",
       caption: "<b>💸 Это пополнения баланса через ЮMoney.</b>",
       parse_mode: "HTML"
   },{
@@ -425,7 +428,7 @@ bot.action("pay_umoney", async (ctx) => {
 bot.action("mini_app", async (ctx) => {
   await ctx.editMessageMedia({
       type:"photo",
-      media:"https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+      media:"https://i.ibb.co/sp8gcRrG/card-1006.jpg",
       caption: "<b>📱 Это мини приложения.</b>",
       parse_mode: "HTML"
   },{
@@ -440,6 +443,24 @@ bot.action("mini_app", async (ctx) => {
             { text: "Нейронка", web_app: { url: "https://notcoin-ids.vercel.app/" } },
           ],
           [{ text: "<< Назад", callback_data: "menu_back" }],
+        ],
+      },
+    }
+  );
+});
+
+
+bot.action("ai_menu", async (ctx) => {
+  ctx.session.ai_disabled = true;
+  await ctx.editMessageMedia({
+      type:"photo",
+      media:"https://i.ibb.co/gLF9nJHw/card-1007.jpg",
+      caption: "<b>📱 Задавайте любые вопросы нейросети. Если хотите закончить перписку то введите команду /stop или нажмите кнопку ниже.</b>",
+      parse_mode: "HTML"
+  },{
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: "Завершить диалог", callback_data: "menu_back" }]
         ],
       },
     }
@@ -462,7 +483,7 @@ bot.action("qr_code", async (ctx) => {
 bot.hears("🗂️ Меню", async (ctx) => {
   await ctx.deleteMessage();
   await ctx.replyWithPhoto(
-    "https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg",
+    "https://i.ibb.co/qYJqZjqG/card-1001.jpg",
     {
       caption: "Меню бота",
       reply_markup: {
@@ -472,7 +493,7 @@ bot.hears("🗂️ Меню", async (ctx) => {
             { text: "🛒 Купить товар", callback_data: `buy_item` },
           ],
           [
-            { text: "🧠 Нейросети", callback_data: `ai_menu` }
+            { text: "🧠 Нейросеть", callback_data: `ai_menu` }
           ],
           [
             { text: "✅ Проверка подписок", callback_data: `check_sub` },
@@ -540,16 +561,15 @@ bot.command("start", async (ctx) => {
       console.log("Запись уже создана");
     }
   });
-
-  ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
+//{ text: "🧠 Купить бота", callback_data: `ai_menu` },
+  ctx.replyWithPhoto("https://i.ibb.co/0jmGR3S4/card-1000.jpg", {
     caption: `<b>Привет! 👋 Я — многофункциональный бот с мощным набором функций!</b>\n<blockquote>Имеються нейросети, мини-игры, полноценные мини приложения и тд.\nЗагляни в /about — там всё, что я умею!</blockquote>`,
     parse_mode: "HTML",
     reply_markup: {
       keyboard: [
         [{ text: "🗂️ Меню", callback_data: `menu` }],
         [
-          { text: "🧠 Купить бота", callback_data: `ai_menu` },
-          { text: "👨 Личный кабинет", callback_data: `translate` },
+          { text: "👨 Личный кабинет", callback_data: `translate` }
         ],
         [{ text: "👨‍💻 Связь с админом", callback_data: `help` }],
       ],
@@ -563,7 +583,7 @@ bot.command("drop", async (ctx) => {
 });
 
 bot.command("about", async (ctx) => {
-  ctx.replyWithPhoto("https://i.ibb.co/yBXRdX1R/IMG-20250513-121336.jpg", {
+  ctx.replyWithPhoto("https://i.ibb.co/rf08CWL0/card-1008.jpg", {
     caption: `✨ <b>Что я умею:</b>\n<blockquote>• Генерировать QR-коды
 • Нейросеть для генерации текста
 • Переводить текст
@@ -611,8 +631,8 @@ bot.command("db", async (ctx) => {
 });
 
 bot.command("stop", async (ctx) => {
-  if(!ctx.session.ai_disabled){
-    ctx.session.ai_disabled = true;
+  if(ctx.session.ai_disabled){
+    ctx.session.ai_disabled = false;
   }
 });
 
@@ -635,12 +655,12 @@ const delay = ms => new Promise(res => { setTimeout(() => res(),ms) });
 const messageAi = { }
 
 bot.on('message', async (ctx) =>{
-  if(!ctx.session.ai_disabled){
+  if(ctx.session.ai_disabled){
     console.log('Написал мне');
     await ctx.replyWithChatAction('typing');
     const txt = ctx.message.text;
     //await delay(2000);  
-    const res = await askAI(txt);
+    const res = await askAI(txt) ?? 'Большая нагрузка попробуйте позже';
      //reply_to_message_id: ctx.message.message_id
     await ctx.reply(`🔔 <b>Ответ DeepSeek</b> >\n<blockquote>${res}</blockquote>`, {
       parse_mode: "HTML",
@@ -658,7 +678,7 @@ bot.launch();
 
 
 const TOKEN1 =
-'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';
+'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';
 const TOKEN2 =
 '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';
 async function askAI(ask){
@@ -672,7 +692,7 @@ async function askAI(ask){
       ]
     },{
      headers: {
-      "Authorization": `Bearer ${TOKEN2}`,
+      "Authorization": `Bearer ${TOKEN1}`,
       "HTTP-Referer": "https://guttural-hurricane-pixie.glitch.me/sleep", // Optional. Site URL for rankings on openrouter.ai.
       "X-Title": "Mutual Boost 2", // Optional. Site title for rankings on openrouter.ai.
       "Content-Type": "application/json"
